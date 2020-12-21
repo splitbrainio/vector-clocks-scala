@@ -12,7 +12,7 @@ Just a sample document.
 
 ```scala mdoc:silent
 import cats.implicits._
-import vectorclocks.Example
+import splitbrain.vectorclocks.Example
 
 Example.sumAll(List(1, 2, 3, 4))
 ```

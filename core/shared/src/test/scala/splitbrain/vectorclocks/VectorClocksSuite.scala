@@ -15,22 +15,11 @@
  * limitations under the License.
  */
 
-package vectorclocks
+package splitbrain.vectorclocks
 
-import cats._
-import cats.implicits._
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatestplus.scalacheck.Checkers
+import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 
-object Example {
-  /**
-    * Example function.
-    *
-    * Usage:
-    * {{{
-    *   import cats.implicits._
-    *
-    *   Example.sumAll(List(1, 2, 3, 4))
-    * }}}
-    */
-  def sumAll[F[_]: Traverse, A: Monoid](list: F[A]): A =
-    list.foldLeft(Monoid[A].empty)(Monoid[A].combine)
-}
+
+trait VectorClocksSuite extends AnyFunSuite with FunSuiteDiscipline with Checkers
