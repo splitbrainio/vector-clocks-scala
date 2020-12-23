@@ -28,6 +28,7 @@ import org.scalacheck.rng.Seed
 import SimpleVectorClock.Timestamp
 
 import scala.collection.immutable.HashMap
+import scala.collection.compat._
 
 object arbitraries {
 
@@ -52,5 +53,4 @@ object arbitraries {
 
   implicit def arbitraryVClock[Node : Arbitrary]: Arbitrary[SimpleVectorClock[Node]] =
     Arbitrary(genTimestamps[Node].map(ts => SimpleVectorClock(timestamps = HashMap.from(ts), counter = new AtomicLong(minTs))))
-
 }

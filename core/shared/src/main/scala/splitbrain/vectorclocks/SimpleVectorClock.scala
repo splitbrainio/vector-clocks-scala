@@ -88,7 +88,7 @@ final class SimpleVectorClock[Node] private(pClock: () => Timestamp,
     if ( this == that ) {
       this
     } else {
-      val mergedTimestamps = timestamps.merged(that.timestamps) { case (lk -> lv, _ -> rv) => lk -> (lv max rv) }
+      val mergedTimestamps = timestamps.merged(that.timestamps) { case ((lk,lv), (_,rv)) => lk -> (lv max rv) }
       SimpleVectorClock(pClock, mergedTimestamps, counter)
     }
   }

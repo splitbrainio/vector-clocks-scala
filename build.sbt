@@ -80,6 +80,11 @@ val SilencerVersion = "1.7.1"
 val GitHub4sVersion = "0.26.0"
 
 /**
+  * Provides Scala 2.13 collections API for 2.12.12
+  */
+val CollectionsCompatVersion = "2.3.2"
+
+/**
   * Defines common plugins between all projects.
   */
 def defaultPlugins: Project ⇒ Project = pr => {
@@ -322,12 +327,13 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
       "org.typelevel"  %%% "cats-core"        % CatsVersion,
       "org.typelevel"  %%% "cats-effect"      % CatsEffectVersion,
       // For testing
-      "org.scalatest"     %%% "scalatest"            % ScalaTestVersion % Test,
-      "org.scalatestplus" %%% "scalacheck-1-15"      % ScalaTestPlusVersion % Test,
-      "org.scalacheck"    %%% "scalacheck"           % ScalaCheckVersion % Test,
-      "org.typelevel"     %%% "cats-laws"            % CatsVersion % Test,
-      "org.typelevel"     %%% "cats-effect-laws"     % CatsEffectVersion % Test,
-      "org.typelevel"     %%% "discipline-scalatest" % DisciplineScalaTestVersion % Test,
+      "org.scala-lang.modules" %%% "scala-collection-compat" % CollectionsCompatVersion % Test,
+      "org.scalatest"          %%% "scalatest"               % ScalaTestVersion % Test,
+      "org.scalatestplus"      %%% "scalacheck-1-15"         % ScalaTestPlusVersion % Test,
+      "org.scalacheck"         %%% "scalacheck"              % ScalaCheckVersion % Test,
+      "org.typelevel"          %%% "cats-laws"               % CatsVersion % Test,
+      "org.typelevel"          %%% "cats-effect-laws"        % CatsEffectVersion % Test,
+      "org.typelevel"          %%% "discipline-scalatest"    % DisciplineScalaTestVersion % Test,
     ),
   )
 
