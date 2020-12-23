@@ -80,7 +80,7 @@ val SilencerVersion = "1.7.1"
 val GitHub4sVersion = "0.26.0"
 
 /**
-  * Provides Scala 2.13 collections API for 2.12.12
+  * Provides Scala 2.13 collections API for 2.12 cross compilation
   */
 val CollectionsCompatVersion = "2.3.2"
 
