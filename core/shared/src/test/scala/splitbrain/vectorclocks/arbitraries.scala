@@ -27,8 +27,8 @@ import org.scalacheck.Gen
 import org.scalacheck.rng.Seed
 import SimpleVectorClock.Timestamp
 
+import scala.annotation.nowarn
 import scala.collection.immutable.HashMap
-import scala.collection.compat._
 
 object arbitraries {
 
@@ -51,6 +51,9 @@ object arbitraries {
     }
   }
 
-  implicit def arbitraryVClock[Node : Arbitrary]: Arbitrary[SimpleVectorClock[Node]] =
+  @nowarn("cat=unused-imports")
+  implicit def arbitraryVClock[Node : Arbitrary]: Arbitrary[SimpleVectorClock[Node]] = {
+    import scala.collection.compat._
     Arbitrary(genTimestamps[Node].map(ts => SimpleVectorClock(timestamps = HashMap.from(ts), counter = new AtomicLong(minTs))))
+  }
 }
