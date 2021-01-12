@@ -24,18 +24,22 @@ import cats.Monoid
 import cats.Show
 import cats.implicits._
 import SimpleVectorClock.Timestamp
+import cats.PartialOrder
+import splitbrain.vectorclocks.SimpleVectorClock.Equal
+import splitbrain.vectorclocks.SimpleVectorClock.HappensAfter
+import splitbrain.vectorclocks.SimpleVectorClock.HappensBefore
+import splitbrain.vectorclocks.SimpleVectorClock.HappensConcurrent
 
 import scala.collection.immutable.HashMap
 
 /**
   * TODO:
   *   - Add better Scaladoc
-  *   - Add methods for adding/removing timestamps to vector clock for given node
   *   - Add syntax trait
-  *   - Implement typeclass instances for PartialOrder. Consider Functor/Foldable as per Haskell implementation
+  *   - Consider implementing Functor/Foldable typeclasses as per Haskell implementation
   *   - Add binary encoding (with scodec?). Make sure to include magic bytes and a version number so that in future the format can change
   *   - Extract timestamp behaviour to Clock type or typeclass
-  *
+  *   - Remove global counter and implement separate field for logical clock so we don't drift from physical time
   *
   * @param pClock
   * @param timestamps
@@ -52,7 +56,7 @@ final class SimpleVectorClock[Node] private(pClock: () => Timestamp,
     * I.e. where possible we use the provided physical clock, but we always preserve the logical clock
     * guarantee of growing monotonically.
     */
-  def timestamp: Timestamp = {
+  private def timestamp: Timestamp = {
     var lastTimestamp = timeZero
     var nextTimestamp = timeZero
 
@@ -66,6 +70,8 @@ final class SimpleVectorClock[Node] private(pClock: () => Timestamp,
   }
 
   def put(node: Node): SimpleVectorClock[Node] = SimpleVectorClock(pClock, timestamps + (node -> timestamp), counter)
+
+  def remove(node: Node): SimpleVectorClock[Node] = SimpleVectorClock(pClock, timestamps - node, counter)
 
   def compareTo(that: SimpleVectorClock[Node]): Relationship = {
     if (timestamps == that.timestamps)
@@ -150,4 +156,12 @@ trait VectorClockInstances {
       .map({ case (k,v) => s"${k.show} -> $v" })
       .mkString("VectorClock(", ", ", ")")
   }
+
+  implicit def vClockPartialOrder[Node]: PartialOrder[SimpleVectorClock[Node]] =
+    (x: SimpleVectorClock[Node], y: SimpleVectorClock[Node]) => x.compareTo(y) match {
+      case HappensBefore => -1.0D
+      case HappensAfter => 1.0D
+      case Equal => 0.0D
+      case HappensConcurrent => Double.NaN
+    }
 }
