@@ -25,7 +25,7 @@ import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Cogen
 import org.scalacheck.Gen
 import org.scalacheck.rng.Seed
-import SimpleVectorClock.Timestamp
+import ExactVectorClock.Timestamp
 
 import scala.annotation.nowarn
 import scala.collection.immutable.HashMap
@@ -44,16 +44,16 @@ object arbitraries {
   implicit val cogenUUID: Cogen[UUID] =
     Cogen((seed: Seed, id: UUID) => Cogen.perturbPair(seed, (id.getLeastSignificantBits, id.getMostSignificantBits)))
 
-  implicit def cogenVClock[Node : Cogen : Ordering]: Cogen[SimpleVectorClock[Node]] = Cogen {
-    (seed: Seed, v: SimpleVectorClock[Node]) => {
+  implicit def cogenVClock[Node : Cogen : Ordering]: Cogen[ExactVectorClock[Node]] = Cogen {
+    (seed: Seed, v: ExactVectorClock[Node]) => {
       val tsMap: Map[Node,Timestamp] = v.timestamps
       Cogen.perturb(seed, tsMap)
     }
   }
 
   @nowarn("cat=unused-imports")
-  implicit def arbitraryVClock[Node : Arbitrary]: Arbitrary[SimpleVectorClock[Node]] = {
+  implicit def arbitraryVClock[Node : Arbitrary]: Arbitrary[ExactVectorClock[Node]] = {
     import scala.collection.compat._
-    Arbitrary(genTimestamps[Node].map(ts => SimpleVectorClock(timestamps = HashMap.from(ts), counter = new AtomicLong(minTs))))
+    Arbitrary(genTimestamps[Node].map(ts => ExactVectorClock(timestamps = HashMap.from(ts), counter = new AtomicLong(minTs))))
   }
 }
