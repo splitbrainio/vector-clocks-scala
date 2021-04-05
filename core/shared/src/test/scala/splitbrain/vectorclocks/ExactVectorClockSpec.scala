@@ -25,13 +25,14 @@ import arbitraries._
 import cats.kernel.laws.discipline.MonoidTests
 import cats.kernel.laws.discipline.PartialOrderTests
 import org.scalacheck.Arbitrary.arbFunction1
+import splitbrain.SplitBrainSuite
 import splitbrain.vectorclocks.ExactVectorClock.Equal
 import splitbrain.vectorclocks.ExactVectorClock.HappensConcurrent
 
 import scala.collection.immutable.HashMap
 import scala.collection.mutable
 
-class ExactVectorClockSpec extends VectorClocksSuite {
+class ExactVectorClockSpec extends SplitBrainSuite {
 
   // Check typeclass laws
   checkAll("VectorClock.MonoidLaws", MonoidTests[ExactVectorClock[UUID]].monoid)
@@ -50,6 +51,8 @@ class ExactVectorClockSpec extends VectorClocksSuite {
   }
 
   test("put should respect monotonicity") {
+    //TODO: move this test to the HybridLogicalClocksSpec.
+    //  Replace with a test adding multiple timestamps for the same node and see that the value goes up
     val maxTimestamp = 1612166159000L
     val minTimestamp = 1612166158000L
     val reverseTimestamps = (minTimestamp to maxTimestamp).reverse.toList
@@ -77,7 +80,7 @@ class ExactVectorClockSpec extends VectorClocksSuite {
     assert(!v1.timestamps.contains(1))
   }
 
-  //TODO: Fix periodic failures by removing
+  //TODO: Fix periodic failures by removing the atomic long global
   test( "show should print a human readable output") {
     val timestamp = 1610352590000L
     val fakeClock = () => timestamp

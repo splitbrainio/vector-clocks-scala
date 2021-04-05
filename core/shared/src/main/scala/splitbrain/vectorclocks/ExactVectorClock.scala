@@ -17,7 +17,7 @@
 
 package splitbrain.vectorclocks
 
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.TimeUnit
 
 import cats.Eq
 import cats.Monoid
@@ -25,6 +25,7 @@ import cats.Show
 import cats.implicits._
 import ExactVectorClock.Timestamp
 import cats.PartialOrder
+import splitbrain.clocks.Clock
 import splitbrain.vectorclocks.ExactVectorClock.Equal
 import splitbrain.vectorclocks.ExactVectorClock.HappensAfter
 import splitbrain.vectorclocks.ExactVectorClock.HappensBefore
@@ -40,43 +41,26 @@ import scala.collection.immutable.HashMap
   *   - Extract timestamp behaviour to Clock type or typeclass
   *   - Remove global counter and implement separate field for logical clock so we don't drift from physical time
   *
-  * @param pClock
+  * @param clock
   * @param timestamps
-  * @param counter
-  * @tparam Node
+  * @tparam N
   */
-final class ExactVectorClock[Node] private(pClock: () => Timestamp,
-                                           val timestamps: HashMap[Node,Timestamp],
-                                           counter: AtomicLong) extends Equals {
+final class ExactVectorClock[N,C: Clock] private(clock: C, val timestamps: HashMap[N,Timestamp]) extends Equals {
   import ExactVectorClock._
-
-  /**
-    * We take a hybrid logical clock approach to producing timestamps from this clock.
-    * I.e. where possible we use the provided physical clock, but we always preserve the logical clock
-    * guarantee of growing monotonically.
-    */
-  private def timestamp: Timestamp = {
-    var lastTimestamp = timeZero
-    var nextTimestamp = timeZero
-
-    do {
-      val currentTimestamp = pClock()
-      lastTimestamp = counter.get
-      nextTimestamp = if (currentTimestamp > lastTimestamp) currentTimestamp else lastTimestamp + 1;
-    } while(!counter.compareAndSet(lastTimestamp, nextTimestamp))
-
-    nextTimestamp
-  }
 
   def isEmpty: Boolean = timestamps.isEmpty
 
   def nonEmpty: Boolean = timestamps.nonEmpty
 
-  def put(node: Node): ExactVectorClock[Node] = ExactVectorClock(pClock, timestamps + (node -> timestamp), counter)
+  def put(node: N): ExactVectorClock[N,C] = {
+    val tickedClock = Clock[C].tick(clock)
+    val timeNow = Clock[C].timeNow(tickedClock, TimeUnit.MILLISECONDS)
+    ExactVectorClock(clock, timestamps + (node -> timeNow))
+  }
 
-  def remove(node: Node): ExactVectorClock[Node] = ExactVectorClock(pClock, timestamps - node, counter)
+  def remove(node: N): ExactVectorClock[N,C] = ExactVectorClock(clock, timestamps - node)
 
-  def compareTo(that: ExactVectorClock[Node]): Relationship = {
+  def compareTo(that: ExactVectorClock[N,C]): Relationship = {
     if (timestamps == that.timestamps)
       Equal
     else if (this isLessThan that)
@@ -87,26 +71,28 @@ final class ExactVectorClock[Node] private(pClock: () => Timestamp,
       HappensConcurrent
   }
 
-  private def isLessThan(that: ExactVectorClock[Node]): Boolean = {
+  private def isLessThan(that: ExactVectorClock[N,C]): Boolean = {
+    val clockZero = Clock[C].startOfTime
+    val timeZero = Clock[C].timeNow(clockZero,TimeUnit.MILLISECONDS)
     val allLeftLTE = timestamps.forall { case (id, ts) => ts <= that.timestamps.getOrElse(id, timeZero) }
     val oneRightGT = that.timestamps.exists { case (id, ts) => ts > timestamps.getOrElse(id, timeZero) }
     allLeftLTE && oneRightGT
   }
 
-  def merge(that: ExactVectorClock[Node]): ExactVectorClock[Node] = {
+  def merge(that: ExactVectorClock[N,C]): ExactVectorClock[N,C] = {
     if ( this == that ) {
       this
     } else {
       val mergedTimestamps = timestamps.merged(that.timestamps) { case ((lk,lv), (_,rv)) => lk -> (lv max rv) }
-      ExactVectorClock(pClock, mergedTimestamps, counter)
+      ExactVectorClock(clock, mergedTimestamps)
     }
   }
 
-  override def canEqual(that: Any): Boolean = that.isInstanceOf[ExactVectorClock[_]]
+  override def canEqual(that: Any): Boolean = that.isInstanceOf[ExactVectorClock[_, _]]
 
   override def equals(other: Any): Boolean =
     (this eq other.asInstanceOf[AnyRef]) || (other match {
-      case that: ExactVectorClock[Node] if that.canEqual(this) => (that compareTo this) == Equal
+      case that: ExactVectorClock[N,C] if that.canEqual(this) => (that compareTo this) == Equal
       case _ => false
     })
 
@@ -115,18 +101,12 @@ final class ExactVectorClock[Node] private(pClock: () => Timestamp,
 
 object ExactVectorClock extends VectorClockInstances {
 
-  private val globalCounter = new AtomicLong(0)
-
-  def apply[Node](pClock: () => Timestamp = System.currentTimeMillis,
-                  timestamps: HashMap[Node,Timestamp] = HashMap.empty[Node, Timestamp],
-                  counter: AtomicLong = globalCounter): ExactVectorClock[Node] =
-    new ExactVectorClock(pClock, timestamps, counter)
+  def apply[N,C: Clock](pClock: C, timestamps: HashMap[N,Timestamp]): ExactVectorClock[N,C] = new ExactVectorClock(pClock, timestamps)
 
   /**
     * Logical timestamp, represented as a simple long
     */
   type Timestamp = Long
-  final val timeZero: Timestamp = 0L
 
   /**
     * Relationships between Vector clocks.
@@ -146,22 +126,22 @@ object ExactVectorClock extends VectorClockInstances {
 
 trait VectorClockInstances {
 
-  implicit def vClockEq[Node]: Eq[ExactVectorClock[Node]] = Eq.fromUniversalEquals
+  implicit def vClockEq[N,C]: Eq[ExactVectorClock[N,C]] = Eq.fromUniversalEquals
 
-  implicit def vClockMonoid[Node]: Monoid[ExactVectorClock[Node]] = new Monoid[ExactVectorClock[Node]] {
-    override def empty: ExactVectorClock[Node] = ExactVectorClock()
+  implicit def vClockMonoid[N,C: Clock]: Monoid[ExactVectorClock[N,C]] = new Monoid[ExactVectorClock[N,C]] {
+    override def empty: ExactVectorClock[N,C] = ExactVectorClock[N,C](Clock[C].startOfTime, HashMap.empty[N,Timestamp])
 
-    override def combine(x: ExactVectorClock[Node], y: ExactVectorClock[Node]): ExactVectorClock[Node] = x merge y
+    override def combine(x: ExactVectorClock[N,C], y: ExactVectorClock[N,C]): ExactVectorClock[N,C] = x merge y
   }
 
-  implicit def vClockShow[Node : Show]: Show[ExactVectorClock[Node]] = Show.show { vClock =>
+  implicit def vClockShow[N: Show,C]: Show[ExactVectorClock[N,C]] = Show.show { vClock =>
     vClock.timestamps.iterator
       .map({ case (k,v) => s"${k.show} -> $v" })
       .mkString("VectorClock(", ", ", ")")
   }
 
-  implicit def vClockPartialOrder[Node]: PartialOrder[ExactVectorClock[Node]] =
-    (x: ExactVectorClock[Node], y: ExactVectorClock[Node]) => x.compareTo(y) match {
+  implicit def vClockPartialOrder[N,C]: PartialOrder[ExactVectorClock[N,C]] =
+    (x: ExactVectorClock[N,C], y: ExactVectorClock[N,C]) => x.compareTo(y) match {
       case HappensBefore => -1.0D
       case HappensAfter => 1.0D
       case Equal => 0.0D

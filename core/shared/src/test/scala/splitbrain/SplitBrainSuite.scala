@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package splitbrain.vectorclocks
+package splitbrain
 
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatestplus.scalacheck.Checkers
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
 
-
-trait VectorClocksSuite extends AnyFunSuite with FunSuiteDiscipline with Checkers
+trait SplitBrainSuite extends AnyFunSuite with FunSuiteDiscipline with Checkers
