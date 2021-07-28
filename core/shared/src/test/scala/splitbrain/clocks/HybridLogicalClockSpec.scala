@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package splitbrain
+package splitbrain.clocks
 
-import org.scalatest.funsuite.AnyFunSuite
-import org.scalatestplus.scalacheck.Checkers
-import org.typelevel.discipline.scalatest.FunSuiteDiscipline
+import splitbrain.SplitBrainSuite
 
-trait SplitBrainSuite extends AnyFunSuite with FunSuiteDiscipline with Checkers
+class HybridLogicalClockSpec extends SplitBrainSuite {
+  
+}

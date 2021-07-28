@@ -158,7 +158,7 @@ lazy val sharedSettings = Seq(
   licenses := Seq("APL2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt")),
   homepage := Some(url(projectWebsiteFullURL.value)),
   headerLicense := Some(HeaderLicense.Custom(
-    s"""|Copyright (c) 2020 the ${projectTitle.value} contributors.
+    s"""|Copyright (c) 2021 the ${projectTitle.value} contributors.
         |See the project homepage at: ${projectWebsiteFullURL.value}
         |
         |Licensed under the Apache License, Version 2.0 (the "License");

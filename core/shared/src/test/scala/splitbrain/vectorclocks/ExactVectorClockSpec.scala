@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 the Vector Clocks contributors.
+ * Copyright (c) 2021 the Vector Clocks contributors.
  * See the project homepage at: https://splitbrain.io/vector-clocks/
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,6 +28,7 @@ import org.scalacheck.Arbitrary.arbFunction1
 import splitbrain.SplitBrainSuite
 import splitbrain.vectorclocks.ExactVectorClock.Equal
 import splitbrain.vectorclocks.ExactVectorClock.HappensConcurrent
+import splitbrain.clocks.Clock._
 
 import scala.collection.immutable.HashMap
 import scala.collection.mutable
@@ -35,9 +36,9 @@ import scala.collection.mutable
 class ExactVectorClockSpec extends SplitBrainSuite {
 
   // Check typeclass laws
-  checkAll("VectorClock.MonoidLaws", MonoidTests[ExactVectorClock[UUID]].monoid)
-  checkAll("VectorClock.EqLaws", EqTests[ExactVectorClock[UUID]].eqv)
-  checkAll("VectorClock.PartialOrderLaws", PartialOrderTests[ExactVectorClock[UUID]].partialOrder)
+  checkAll("VectorClock.MonoidLaws", MonoidTests[ExactVectorClock[UUID,FakeClock]].monoid)
+  checkAll("VectorClock.EqLaws", EqTests[ExactVectorClock[UUID,FakeClock]].eqv)
+  checkAll("VectorClock.PartialOrderLaws", PartialOrderTests[ExactVectorClock[UUID,FakeClock]].partialOrder)
 
   // Test behaviours
   test("put should add a node to a vector clock's entries") {
@@ -47,7 +48,7 @@ class ExactVectorClockSpec extends SplitBrainSuite {
     assert(v.timestamps.isEmpty)
     val v2 = v.put(1)
     assert(v2.timestamps.nonEmpty)
-    assert(v2.timestamps == Map(1->timestamp))
+    assert(v2.timestamps == Map(1 -> timestamp))
   }
 
   test("put should respect monotonicity") {
@@ -59,7 +60,7 @@ class ExactVectorClockSpec extends SplitBrainSuite {
     val queue = mutable.Queue.from(reverseTimestamps)
     val reverseClock = () => queue.dequeue()
     val v = ExactVectorClock[Int](reverseClock)
-    val vNew = (0 until 10).foldLeft(v) { (vDelta,i) => vDelta.put(i) }
+    val vNew = (0 until 10).foldLeft(v) { (vDelta, i) => vDelta.put(i) }
 
     assert(vNew.timestamps.values.min >= maxTimestamp)
     assert(vNew.timestamps.values.toSet.size == 10)
@@ -74,20 +75,19 @@ class ExactVectorClockSpec extends SplitBrainSuite {
     val time = 1607820163000L
     val timestamps = HashMap(1 -> time, 7 -> (time + 3200L))
     val v = ExactVectorClock[Int](timestamps = timestamps)
-    assert(v.timestamps.keySet == Set(1,7))
+    assert(v.timestamps.keySet == Set(1, 7))
 
     val v1 = v.remove(1)
     assert(!v1.timestamps.contains(1))
   }
 
-  //TODO: Fix periodic failures by removing the atomic long global
-  test( "show should print a human readable output") {
+  test("show should print a human readable output") {
     val timestamp = 1610352590000L
     val fakeClock = () => timestamp
     val v = ExactVectorClock[Int](pClock = fakeClock)
       .put(1)
       .put(2)
-    assert(v.show == s"VectorClock(1 -> ${timestamp}, 2 -> ${timestamp+1})")
+    assert(v.show == s"VectorClock(1 -> ${timestamp}, 2 -> ${timestamp + 1})")
   }
 
   test("empty vector clocks should be equal") {

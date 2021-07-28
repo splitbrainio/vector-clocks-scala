@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 the Vector Clocks contributors.
+ * Copyright (c) 2021 the Vector Clocks contributors.
  * See the project homepage at: https://splitbrain.io/vector-clocks/
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,26 +34,29 @@ object arbitraries {
 
   private val minTs = 100L
 
-  private def genTimestamps[Node : Arbitrary] = Gen.mapOf[Node,Long] {
-    for {
-      timestamp <- Gen.choose(0L, minTs)
-      node <- arbitrary[Node]
-    } yield node -> timestamp
-  }
+  private def genTimestamps[Node: Arbitrary] =
+    Gen.mapOf[Node, Long] {
+      for {
+        timestamp <- Gen.choose(0L, minTs)
+        node      <- arbitrary[Node]
+      } yield node -> timestamp
+    }
 
   implicit val cogenUUID: Cogen[UUID] =
     Cogen((seed: Seed, id: UUID) => Cogen.perturbPair(seed, (id.getLeastSignificantBits, id.getMostSignificantBits)))
 
-  implicit def cogenVClock[Node : Cogen : Ordering]: Cogen[ExactVectorClock[Node]] = Cogen {
-    (seed: Seed, v: ExactVectorClock[Node]) => {
-      val tsMap: Map[Node,Timestamp] = v.timestamps
-      Cogen.perturb(seed, tsMap)
+  implicit def cogenVClock[Node: Cogen: Ordering]: Cogen[ExactVectorClock[Node]] =
+    Cogen { (seed: Seed, v: ExactVectorClock[Node]) =>
+      {
+        val tsMap: Map[Node, Timestamp] = v.timestamps
+        Cogen.perturb(seed, tsMap)
+      }
     }
-  }
 
   @nowarn("cat=unused-imports")
-  implicit def arbitraryVClock[Node : Arbitrary]: Arbitrary[ExactVectorClock[Node]] = {
+  implicit def arbitraryVClock[Node: Arbitrary]: Arbitrary[ExactVectorClock[Node]] = {
     import scala.collection.compat._
-    Arbitrary(genTimestamps[Node].map(ts => ExactVectorClock(timestamps = HashMap.from(ts), counter = new AtomicLong(minTs))))
+    Arbitrary(
+      genTimestamps[Node].map(ts => ExactVectorClock(timestamps = HashMap.from(ts), counter = new AtomicLong(minTs))))
   }
 }

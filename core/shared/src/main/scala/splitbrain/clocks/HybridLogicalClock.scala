@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 the Vector Clocks contributors.
+ * Copyright (c) 2021 the Vector Clocks contributors.
  * See the project homepage at: https://splitbrain.io/vector-clocks/
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit
 import cats.Order
 
 import scala.concurrent.duration.TimeUnit
+import Clock._
 
 /**
   * Implementation of a Hybrid Logical Clock (HLC) described by Kulkarni, Demirbas et al in
@@ -41,18 +42,17 @@ import scala.concurrent.duration.TimeUnit
   *   Is that equiv to merge and tick? that will increment the counter but I'm not certain that matters.
   *   Eventually the physical timestamp will overtake and the counter will reset to 0
   */
-final class HybridLogicalClock[C: Clock] private (private val physicalClock: C,
-                                           val timestamp: Long,
-                                           val counter: Int) extends Equals {
+final class HybridLogicalClock[C: WallClock] private (private val physicalClock: C, val timestamp: Long, val counter: Int)
+  extends Equals {
 
   def tick: HybridLogicalClock[C] = {
-    val tickedClock = Clock[C].tick(physicalClock)
-    val physicalTimeNow = Clock[C].timeNow(tickedClock, TimeUnit.MILLISECONDS)
+    val tickedClock = physicalClock.tick
+    val physicalTimeNow = tickedClock.latestWallTime(TimeUnit.MILLISECONDS)
 
     val previousTimestamp = timestamp
     val nextTimestamp = Math.max(previousTimestamp, physicalTimeNow)
 
-    val nextCounter = if(nextTimestamp == previousTimestamp) counter + 1 else 0
+    val nextCounter = if (nextTimestamp == previousTimestamp) counter + 1 else 0
     new HybridLogicalClock[C](tickedClock, nextTimestamp, nextCounter)
   }
 
@@ -62,9 +62,9 @@ final class HybridLogicalClock[C: Clock] private (private val physicalClock: C,
     val nextTimestamp = Math.max(previousTimestampLocal, previousTimestampRemote)
 
     val nextCounter = {
-      if(previousTimestampLocal == previousTimestampRemote)
+      if (previousTimestampLocal == previousTimestampRemote)
         Math.max(counter, remote.counter) + 1
-      else if(nextTimestamp == previousTimestampLocal)
+      else if (nextTimestamp == previousTimestampLocal)
         counter + 1
       else
         remote.counter + 1
@@ -92,39 +92,45 @@ object HybridLogicalClock extends LowPriorityInstances {
   import Clock._
 
   def apply[C: Clock](physicalClock: C): HybridLogicalClock[C] =
-    new HybridLogicalClock[C](physicalClock, Clock[C].timeNow(physicalClock, TimeUnit.MILLISECONDS), 0)
+    new HybridLogicalClock[C](physicalClock, Clock[C].latestTime(physicalClock), 0)
 
   def unapply[C](clock: HybridLogicalClock[C]): Option[(Long, Int)] = Some((clock.timestamp, clock.counter))
 
-  implicit val clockInstanceForHybridSystem: Clock[HybridLogicalClock[SystemClock]] = new Clock[HybridLogicalClock[SystemClock]] {
-    override val order: Order[HybridLogicalClock[SystemClock]] = orderInstanceForHybridLogical[SystemClock]
-    override val startOfTime: HybridLogicalClock[SystemClock] = HybridLogicalClock[SystemClock](Clock[SystemClock].startOfTime)
+  implicit val clockInstanceForHybridSystem: Clock[HybridLogicalClock[SystemClock]] =
+    new Clock[HybridLogicalClock[SystemClock]] {
+      override val order: Order[HybridLogicalClock[SystemClock]] = orderInstanceForHybridLogical[SystemClock]
+      override val startOfTime: HybridLogicalClock[SystemClock] =
+        HybridLogicalClock[SystemClock](Clock[SystemClock].startOfTime)
 
-    override def timeNow(c: HybridLogicalClock[SystemClock], units: TimeUnit): Long = units.convert(c.timestamp, TimeUnit.MILLISECONDS)
+      override def latestTime(c: HybridLogicalClock[SystemClock], units: TimeUnit): Long =
+        units.convert(c.timestamp, TimeUnit.MILLISECONDS)
 
-    override def tick(c: HybridLogicalClock[SystemClock]): HybridLogicalClock[SystemClock] = c.tick
+      override def tick(c: HybridLogicalClock[SystemClock]): HybridLogicalClock[SystemClock] = c.tick
 
-    override def merge(l: HybridLogicalClock[SystemClock], r: HybridLogicalClock[SystemClock]): HybridLogicalClock[SystemClock] = l merge r
-  }
+      override def merge(
+        l: HybridLogicalClock[SystemClock],
+        r: HybridLogicalClock[SystemClock]): HybridLogicalClock[SystemClock] = l merge r
+    }
 }
 
-trait LowPriorityInstances
-{
-  implicit def clockInstanceForHybrid[C: Clock]: Clock[HybridLogicalClock[C]] = new Clock[HybridLogicalClock[C]] {
-    override val order: Order[HybridLogicalClock[C]] = orderInstanceForHybridLogical[C]
-    override val startOfTime: HybridLogicalClock[C] = HybridLogicalClock[C](Clock[C].startOfTime)
+trait LowPriorityInstances {
+  implicit def clockInstanceForHybrid[C: Clock]: Clock[HybridLogicalClock[C]] =
+    new Clock[HybridLogicalClock[C]] {
+      override val order: Order[HybridLogicalClock[C]] = orderInstanceForHybridLogical[C]
+      override val startOfTime: HybridLogicalClock[C] = HybridLogicalClock[C](Clock[C].startOfTime)
 
-    override def timeNow(c: HybridLogicalClock[C], units: TimeUnit): Long = units.convert(c.timestamp, TimeUnit.MILLISECONDS)
+      override def latestTime(c: HybridLogicalClock[C], units: TimeUnit): Long =
+        units.convert(c.timestamp, TimeUnit.MILLISECONDS)
 
-    override def tick(c: HybridLogicalClock[C]): HybridLogicalClock[C] = c.tick
+      override def tick(c: HybridLogicalClock[C]): HybridLogicalClock[C] = c.tick
 
-    override def merge(l: HybridLogicalClock[C], r: HybridLogicalClock[C]): HybridLogicalClock[C] = l merge r
-  }
+      override def merge(l: HybridLogicalClock[C], r: HybridLogicalClock[C]): HybridLogicalClock[C] = l merge r
+    }
 
   protected def orderInstanceForHybridLogical[C]: Order[HybridLogicalClock[C]] =
     Order.from((l, r) => {
       val diff = l.timestamp - r.timestamp
-      if(diff == 0)
+      if (diff == 0)
         l.counter - r.counter
       else
         diff.toInt
