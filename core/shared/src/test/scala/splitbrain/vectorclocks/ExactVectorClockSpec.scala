@@ -31,50 +31,29 @@ import splitbrain.vectorclocks.ExactVectorClock.HappensConcurrent
 import splitbrain.clocks.Clock._
 
 import scala.collection.immutable.HashMap
-import scala.collection.mutable
 
 class ExactVectorClockSpec extends SplitBrainSuite {
 
   // Check typeclass laws
-  checkAll("VectorClock.MonoidLaws", MonoidTests[ExactVectorClock[UUID,FakeClock]].monoid)
-  checkAll("VectorClock.EqLaws", EqTests[ExactVectorClock[UUID,FakeClock]].eqv)
-  checkAll("VectorClock.PartialOrderLaws", PartialOrderTests[ExactVectorClock[UUID,FakeClock]].partialOrder)
+  checkAll("VectorClock.MonoidLaws", MonoidTests[ExactVectorClock[UUID,Long]].monoid)
+  checkAll("VectorClock.EqLaws", EqTests[ExactVectorClock[UUID,Long]].eqv)
+  checkAll("VectorClock.PartialOrderLaws", PartialOrderTests[ExactVectorClock[UUID,Long]].partialOrder)
 
   // Test behaviours
   test("put should add a node to a vector clock's entries") {
-    val timestamp = 1607820163000L
-    val fakeClock = () => timestamp
-    val v = ExactVectorClock[Int](pClock = fakeClock)
+    val timestamp = 12793472973L
+    val v = ExactVectorClock[Int,Long](timestamp)
     assert(v.timestamps.isEmpty)
     val v2 = v.put(1)
     assert(v2.timestamps.nonEmpty)
     assert(v2.timestamps == Map(1 -> timestamp))
   }
 
-  test("put should respect monotonicity") {
-    //TODO: move this test to the HybridLogicalClocksSpec.
-    //  Replace with a test adding multiple timestamps for the same node and see that the value goes up
-    val maxTimestamp = 1612166159000L
-    val minTimestamp = 1612166158000L
-    val reverseTimestamps = (minTimestamp to maxTimestamp).reverse.toList
-    val queue = mutable.Queue.from(reverseTimestamps)
-    val reverseClock = () => queue.dequeue()
-    val v = ExactVectorClock[Int](reverseClock)
-    val vNew = (0 until 10).foldLeft(v) { (vDelta, i) => vDelta.put(i) }
-
-    assert(vNew.timestamps.values.min >= maxTimestamp)
-    assert(vNew.timestamps.values.toSet.size == 10)
-
-    val sortedByNode = vNew.timestamps.toSeq.sortBy(_._1)
-    val sortedByTimestamp = vNew.timestamps.toSeq.sortBy(_._2)
-
-    assert(sortedByNode == sortedByTimestamp)
-  }
 
   test("remove should remove a node from a vector clock's entries") {
-    val time = 1607820163000L
-    val timestamps = HashMap(1 -> time, 7 -> (time + 3200L))
-    val v = ExactVectorClock[Int](timestamps = timestamps)
+    val v = ExactVectorClock.empty[Int,Long]
+        .put(1)
+        .put(7)
     assert(v.timestamps.keySet == Set(1, 7))
 
     val v1 = v.remove(1)
@@ -82,25 +61,24 @@ class ExactVectorClockSpec extends SplitBrainSuite {
   }
 
   test("show should print a human readable output") {
-    val timestamp = 1610352590000L
-    val fakeClock = () => timestamp
-    val v = ExactVectorClock[Int](pClock = fakeClock)
+    val timestamp = 3200L 
+    val v = ExactVectorClock[Int,Long](timestamp)
       .put(1)
       .put(2)
     assert(v.show == s"VectorClock(1 -> ${timestamp}, 2 -> ${timestamp + 1})")
   }
 
   test("empty vector clocks should be equal") {
-    val v1 = ExactVectorClock()
-    val v2 = ExactVectorClock()
+    val v1 = ExactVectorClock.empty[Int,Long]
+    val v2 = ExactVectorClock.empty[Int,Long]
     assert(v1.isEmpty && v2.isEmpty)
     assert(v1.compareTo(v2) == Equal)
   }
 
   test("unrelated vector clocks should be concurrent") {
-    val v1 = ExactVectorClock[Int]()
+    val v1 = ExactVectorClock.empty[Int,Long]
       .put(1)
-    val v2 = ExactVectorClock[Int]()
+    val v2 = ExactVectorClock.empty[Int,Long]
       .put(2)
     assert(v1.compareTo(v2) == HappensConcurrent)
   }
@@ -110,7 +88,7 @@ class ExactVectorClockSpec extends SplitBrainSuite {
 //  }
 
   test("vector clocks should be immutable") {
-    val v1 = ExactVectorClock[Int]()
+    val v1 = ExactVectorClock.empty[Int,Long]
     val v2 = v1.put(1)
     assert(v1 != v2)
     assert(v1.isEmpty)

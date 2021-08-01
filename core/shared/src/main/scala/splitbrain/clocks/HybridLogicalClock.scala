@@ -21,8 +21,8 @@ import java.util.concurrent.TimeUnit
 
 import cats.Order
 
-import scala.concurrent.duration.TimeUnit
 import Clock._
+
 
 /**
   * Implementation of a Hybrid Logical Clock (HLC) described by Kulkarni, Demirbas et al in
@@ -91,19 +91,17 @@ object HybridLogicalClock extends LowPriorityInstances {
 
   import Clock._
 
-  def apply[C: Clock](physicalClock: C): HybridLogicalClock[C] =
-    new HybridLogicalClock[C](physicalClock, Clock[C].latestTime(physicalClock), 0)
+  def apply[C: WallClock](physicalClock: C): HybridLogicalClock[C] =
+    new HybridLogicalClock[C](physicalClock, physicalClock.latestWallTime(TimeUnit.MILLISECONDS), 0)
 
   def unapply[C](clock: HybridLogicalClock[C]): Option[(Long, Int)] = Some((clock.timestamp, clock.counter))
 
   implicit val clockInstanceForHybridSystem: Clock[HybridLogicalClock[SystemClock]] =
     new Clock[HybridLogicalClock[SystemClock]] {
       override val order: Order[HybridLogicalClock[SystemClock]] = orderInstanceForHybridLogical[SystemClock]
-      override val startOfTime: HybridLogicalClock[SystemClock] =
-        HybridLogicalClock[SystemClock](Clock[SystemClock].startOfTime)
+      override val startOfTime: HybridLogicalClock[SystemClock] = HybridLogicalClock[SystemClock](Clock[SystemClock].startOfTime)
 
-      override def latestTime(c: HybridLogicalClock[SystemClock], units: TimeUnit): Long =
-        units.convert(c.timestamp, TimeUnit.MILLISECONDS)
+      override def latestTime(c: HybridLogicalClock[SystemClock]): Long = c.timestamp
 
       override def tick(c: HybridLogicalClock[SystemClock]): HybridLogicalClock[SystemClock] = c.tick
 
@@ -114,13 +112,12 @@ object HybridLogicalClock extends LowPriorityInstances {
 }
 
 trait LowPriorityInstances {
-  implicit def clockInstanceForHybrid[C: Clock]: Clock[HybridLogicalClock[C]] =
+  implicit def clockInstanceForHybrid[C: WallClock]: Clock[HybridLogicalClock[C]] =
     new Clock[HybridLogicalClock[C]] {
       override val order: Order[HybridLogicalClock[C]] = orderInstanceForHybridLogical[C]
       override val startOfTime: HybridLogicalClock[C] = HybridLogicalClock[C](Clock[C].startOfTime)
 
-      override def latestTime(c: HybridLogicalClock[C], units: TimeUnit): Long =
-        units.convert(c.timestamp, TimeUnit.MILLISECONDS)
+      override def latestTime(c: HybridLogicalClock[C]): Long = c.timestamp
 
       override def tick(c: HybridLogicalClock[C]): HybridLogicalClock[C] = c.tick
 

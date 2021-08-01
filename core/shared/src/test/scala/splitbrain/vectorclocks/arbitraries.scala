@@ -18,7 +18,6 @@
 package splitbrain.vectorclocks
 
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicLong
 
 import org.scalacheck.Arbitrary
 import org.scalacheck.Arbitrary.arbitrary
@@ -28,8 +27,9 @@ import org.scalacheck.rng.Seed
 import ExactVectorClock.Timestamp
 
 import scala.annotation.nowarn
-import scala.collection.immutable.HashMap
 
+//TODO: Expand to take generic clocks (not just Long)
+// Also figure out how to generate arbitrary positive longs
 object arbitraries {
 
   private val minTs = 100L
@@ -45,8 +45,8 @@ object arbitraries {
   implicit val cogenUUID: Cogen[UUID] =
     Cogen((seed: Seed, id: UUID) => Cogen.perturbPair(seed, (id.getLeastSignificantBits, id.getMostSignificantBits)))
 
-  implicit def cogenVClock[Node: Cogen: Ordering]: Cogen[ExactVectorClock[Node]] =
-    Cogen { (seed: Seed, v: ExactVectorClock[Node]) =>
+  implicit def cogenVClock[Node: Cogen: Ordering]: Cogen[ExactVectorClock[Node,Long]] =
+    Cogen { (seed: Seed, v: ExactVectorClock[Node, Long]) =>
       {
         val tsMap: Map[Node, Timestamp] = v.timestamps
         Cogen.perturb(seed, tsMap)
@@ -54,9 +54,8 @@ object arbitraries {
     }
 
   @nowarn("cat=unused-imports")
-  implicit def arbitraryVClock[Node: Arbitrary]: Arbitrary[ExactVectorClock[Node]] = {
+  implicit def arbitraryVClock[Node: Arbitrary]: Arbitrary[ExactVectorClock[Node,Long]] = {
     import scala.collection.compat._
-    Arbitrary(
-      genTimestamps[Node].map(ts => ExactVectorClock(timestamps = HashMap.from(ts), counter = new AtomicLong(minTs))))
+    Arbitrary(genTimestamps[Node].map(ExactVectorClock[Node,Long](_)))
   }
 }

@@ -21,7 +21,6 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 import scala.specialized
-import scala.concurrent.duration.TimeUnit
 import cats.Order
 import splitbrain.clocks.Clock.FakeClock
 import splitbrain.clocks.Clock.SystemClock
@@ -127,7 +126,7 @@ trait ClockInstances {
 
   implicit def orderInstanceForClock[C: Clock]: Order[C] = Clock[C].order
 
-  implicit val clockInstanceForSystem: Clock[SystemClock] = new Clock[SystemClock] {
+  implicit val clockInstanceForSystem: WallClock[SystemClock] = new WallClock[SystemClock] {
     override val order: Order[SystemClock] = Order.fromLessThan((l, r) => l.now isBefore r.now)
     override val startOfTime: SystemClock = SystemClock(Instant.EPOCH)
 
@@ -136,11 +135,11 @@ trait ClockInstances {
     override def tick(clock: SystemClock): SystemClock = clock.copy(Instant.now())
   }
 
-  implicit val clockInstanceForFake: Clock[FakeClock] = new Clock[FakeClock] {
+  implicit val clockInstanceForFake: WallClock[FakeClock] = new WallClock[FakeClock] {
     override val order: Order[FakeClock] = Order.by(_.now)
     override val startOfTime: FakeClock = FakeClock(0L, LazyList.empty[Long], TimeUnit.MILLISECONDS)
 
-    override def latestTime(c: FakeClock, units: TimeUnit): Long = units.convert(c.now, c.unit)
+    override def latestTime(c: FakeClock): Long = c.now
 
     override def tick(c: FakeClock): FakeClock = c.copy(c.timestamps.head, c.timestamps.tail)
   }

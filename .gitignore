@@ -19,3 +19,4 @@ project/metals.sbt
 site/Gemfile.lock
 node_modules/
 project/project/
+.vscode/

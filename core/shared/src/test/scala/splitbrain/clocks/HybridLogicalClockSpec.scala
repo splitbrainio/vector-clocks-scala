@@ -20,5 +20,27 @@ package splitbrain.clocks
 import splitbrain.SplitBrainSuite
 
 class HybridLogicalClockSpec extends SplitBrainSuite {
+
+
+//   test("put should respect monotonicity") {
+//     //TODO: move this test to the HybridLogicalClocksSpec.
+//     //  Replace with a test adding multiple timestamps for the same node and see that the value goes up
+//     val maxTimestamp = 1612166159000L
+//     val minTimestamp = 1612166158000L
+//     val reverseTimestamps = (minTimestamp to maxTimestamp).reverse.toList
+//     val queue = mutable.Queue.from(reverseTimestamps)
+
+//     val reverseClock = () => queue.dequeue()
+//     val v = ExactVectorClock[Int,FakeClock](reverseClock)
+//     val vNew = (0 until 10).foldLeft(v) { (vDelta, i) => vDelta.put(i) }
+
+//     assert(vNew.timestamps.values.min >= maxTimestamp)
+//     assert(vNew.timestamps.values.toSet.size == 10)
+
+//     val sortedByNode = vNew.timestamps.toSeq.sortBy(_._1)
+//     val sortedByTimestamp = vNew.timestamps.toSeq.sortBy(_._2)
+
+//     assert(sortedByNode == sortedByTimestamp)
+//   }
   
 }
